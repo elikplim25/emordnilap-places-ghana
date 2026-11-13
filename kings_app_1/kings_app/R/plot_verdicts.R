@@ -44,12 +44,7 @@ plot_verdict_dots <- function(K, tips, ctx) {
   D$col <- PAL$verdict[as.character(D$verdict)]
   D$vx <- match(as.character(D$verdict), c("Good", "Mixed", "Evil", "N/A"))
   D$row <- factor(D$label, levels = rev(D$label))
-  # dynasty label + its totals (always the whole dynasty, whatever the filters), e.g. "House of Jehu\n5 kings | 102 yrs"
-  n_k <- table(K$house); yrs <- tapply(K$years, K$house, sum)
-  tot_txt <- function(h) paste0(n_k[[h]], ifelse(n_k[[h]] == 1, " king | ", " kings | "),
-                                ifelse(yrs[[h]] < 1, fmt_reign(yrs[[h]]), paste0(round(yrs[[h]]), ifelse(round(yrs[[h]]) == 1, " yr", " yrs"))))
-  hl <- unique(D$house)
-  D$hs <- factor(D$house, levels = hl, labels = paste0(hl, "\n", vapply(hl, tot_txt, "")))
+  D$hs <- factor(D$house, levels = unique(D$house))
   D$a <- if (is.null(ctx$sel)) 1 else ifelse(D$id == ctx$sel, 1, 0.3)
   ggplot2::ggplot(D, ggplot2::aes(x = vx, y = row)) +
     ggiraph::geom_point_interactive(ggplot2::aes(size = years, tooltip = tip, data_id = id, onclick = click), shape = 21, stroke = 1.2,
@@ -66,4 +61,61 @@ plot_verdict_dots <- function(K, tips, ctx) {
                    strip.placement = "outside", panel.spacing = ggplot2::unit(0.4, "lines"),
                    strip.text.y.left = ggplot2::element_text(angle = 0, hjust = 1, face = "bold", family = F_HEAD, size = 11, colour = "#FFFFFF"),
                    strip.background = ggplot2::element_rect(fill = PAL$ink_soft, colour = NA))
+}
+
+# ---------------------------------------------------------------------------
+# dynasties at a glance: one bar per dynasty (in order of history), split by kingdom
+#   measure "kings": how many kings the dynasty had
+#   measure "years": how long it held the throne, from the reference chronology, with overlapping
+#                    co-regencies counted once (so House of David is ~419 years, not the 468 you get by adding reigns)
+# ---------------------------------------------------------------------------
+span_years <- function(s, e, y) {                   # length of the union of reigns [e, s] (BC, s > e)
+  iv <- data.frame(s = s, e = e, y = y); iv <- iv[order(-iv$s), ]
+  tot <- 0; cs <- iv$s[1]; ce <- iv$e[1]
+  for (i in seq_len(nrow(iv))[-1]) {
+    if (iv$s[i] > ce) ce <- min(ce, iv$e[i]) else { tot <- tot + (cs - ce); cs <- iv$s[i]; ce <- iv$e[i] }
+  }
+  tot <- tot + (cs - ce)
+  if (tot < 1) sum(y) else tot                      # Zimri (7 days), Shallum (1 month)
+}
+
+plot_dynasty_bars <- function(K, ctx, measure = c("kings", "years")) {
+  measure <- match.arg(measure)
+  ord_h <- unique(K$house[order(K$id)])
+  B <- do.call(rbind, lapply(ord_h, function(h) {
+    d <- K[K$house == h, ]
+    do.call(rbind, lapply(intersect(KINGDOM_LEVELS, as.character(d$kingdom)), function(kg) {
+      x <- d[as.character(d$kingdom) == kg, ]
+      data.frame(house = h, kingdom = kg, kings = nrow(x), years = span_years(x$start_bc, x$end_bc, x$years),
+                 names = paste(x$label, collapse = ", "))
+    }))
+  }))
+  B$v <- B[[measure]]
+  B$house <- factor(B$house, levels = rev(ord_h))
+  B$kingdom <- factor(B$kingdom, levels = KINGDOM_LEVELS)
+  B <- B[order(B$house, B$kingdom), ]
+  B$x1 <- ave(B$v, B$house, FUN = cumsum); B$x0 <- B$x1 - B$v
+  B$y <- as.numeric(B$house)
+  fmt <- function(v) if (measure == "kings") paste0(v, ifelse(v == 1, " king", " kings")) else ifelse(v < 1, fmt_reign(v), paste0(round(v), " yrs"))
+  B$tip <- sprintf("<div class=\"tt\"><div class=\"tt-name\">%s</div><div class=\"tt-meta\">%s</div><div class=\"tt-badges\"><span class=\"pill\" style=\"background:%s;color:#fff\">%s kings | %s</span></div><div class=\"tt-notes\">%s</div><div class=\"tt-hint\">Click to see this dynasty below</div></div>",
+                   esc(as.character(B$house)), esc(KINGDOM_LABELS[as.character(B$kingdom)]), PAL$kingdom[as.character(B$kingdom)],
+                   B$kings, ifelse(B$years < 1, fmt_reign(B$years), paste0(round(B$years), " years")), esc(B$names))
+  B$click <- vapply(as.character(B$house), js_house, "")
+  B$a <- if (length(ctx$dyn)) ifelse(as.character(B$house) %in% ctx$dyn, 1, 0.3) else 1
+  T <- data.frame(y = seq_along(levels(B$house)), x = as.numeric(tapply(B$x1, B$house, max)))
+  T$lab <- vapply(T$x, fmt, "")
+  step <- if (measure == "kings") 2 else 50
+  ggplot2::ggplot(B) +
+    ggiraph::geom_rect_interactive(ggplot2::aes(xmin = x0, xmax = x1, ymin = y - 0.36, ymax = y + 0.36, fill = kingdom, alpha = a,
+                                                 tooltip = tip, data_id = paste(house, kingdom), onclick = click), colour = "#FFFFFF", linewidth = 0.6) +
+    ggplot2::geom_text(data = T, ggplot2::aes(x = x, y = y, label = lab), nudge_x = max(T$x) * 0.012, hjust = 0, family = F_HEAD, fontface = "bold", size = 4, colour = PAL$ink) +
+    ggplot2::scale_fill_manual(values = PAL$kingdom, labels = KINGDOM_LABELS, name = NULL) +
+    ggplot2::scale_alpha_identity() +
+    ggplot2::scale_y_continuous(breaks = seq_along(levels(B$house)), labels = levels(B$house), expand = ggplot2::expansion(add = 0.55)) +
+    ggplot2::scale_x_continuous(breaks = seq(0, 500, step), limits = c(0, max(T$x) * 1.13), expand = c(0, 0)) +
+    ggplot2::labs(x = if (measure == "kings") "Number of kings" else "Years the dynasty held the throne (co-regencies counted once)", y = NULL) +
+    theme_kings(13) +
+    ggplot2::theme(legend.position = "top", legend.text = ggplot2::element_text(size = 13, face = "bold", colour = PAL$ink),
+                   panel.grid.major.y = ggplot2::element_blank(),
+                   axis.text.y = ggplot2::element_text(family = F_HEAD, face = "bold", size = 12.5, colour = PAL$ink))
 }

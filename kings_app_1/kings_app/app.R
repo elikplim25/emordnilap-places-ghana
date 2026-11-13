@@ -116,21 +116,25 @@ ui <- fluidPage(
                      shot("lives-years-on-the-throne", title = "Years on the throne",
                           sub = "How long every one of the 43 rulers reigned, including the many kings whose age when crowned or at death the Bible does not record. Colour = verdict.",
                           div(class = "optrow no-shot", radioButtons("order_by", NULL, inline = TRUE, c("In order" = "time", "Longest first" = "length"))),
-                          girafeOutput("reigns", width = "100%", height = "auto"))),
+                          girafeOutput("reigns", width = "100%", height = "auto")),
+                     shot("dynasties-kings-and-years", title = "The dynasties: how many kings, and how long they lasted",
+                          sub = "One bar per dynasty, in the order they came to power, split by kingdom. Switch between the number of kings and the years each dynasty held the throne (from the reference chronology, with co-regencies counted once). Click a bar to focus the whole app on that dynasty; click it again to show all.",
+                          div(class = "optrow no-shot", span(class = "opt-lab", "Show"),
+                              radioButtons("dmeasure", NULL, inline = TRUE, c("Number of kings" = "kings", "Years on the throne" = "years"))),
+                          girafeOutput("dynbars", width = "100%", height = "auto"))),
             tabPanel("Houses & Kin",
                      div(class = "lede", "How did each king get the throne? Below, how many kings in each kingdom were the son, brother or other relative of the one before, and how many were not related at all."),
-                     uiOutput("kin_cards"),
-                     shot("synchronisms-israel-and-judah", title = "Two kingdoms, one clock: who was king when",
-                          sub = tagList("After the split, the Bible dates each new king by the reign of the king next door: Asa of Judah, for example, began to reign in the 20th year of Jeroboam of Israel (1 Kings 15:9). ",
-                                        "Each line joins the start of one reign to that year in the other king's reign; the number is the year. Solid lines fit the reference chronology; dashed amber lines are the known puzzles, where co-regencies or different ways of counting stretch the sums. Thin strips are years a king shared the throne. ",
-                                        strong("Read down and the story ends twice: Israel falls to Assyria in 722 BC and is carried away; Judah survives Assyria, only to fall to Babylon in 586 BC.")),
-                          girafeOutput("sync", width = "100%", height = "auto"))),
+                     uiOutput("kin_cards")),
             tabPanel("Ties & Alliances",
-                     shot("ties-and-alliances", title = "Ties & Alliances",
-                          sub = "Which kings were bound to others by marriage, alliance, war or murder? Each bar counts the ties a king had, split by kind. Hover a bar to read each tie and where it is in the Bible.",
+                     shot("ties-sankey", title = "Who was bound to whom",
+                          sub = "Every ribbon is one tie between two kings, coloured by kind: kin or marriage, alliance, war or rivalry, killed or overthrown. A thicker block means a king had more ties. Hover a ribbon to read the tie and where it is in the Bible; click a king to open his profile.",
                           div(class = "optrow no-shot", span(class = "opt-lab", "Show ties"),
-                              radioButtons("scope", NULL, inline = TRUE, c("Between Israel and Judah" = "between", "Inside one kingdom (coups, succession)" = "within", "Both" = "both"))),
+                              radioButtons("scope", NULL, inline = TRUE, c("Between Israel and Judah" = "between", "Inside one kingdom" = "within"))),
+                          uiOutput("ties_note"),
                           girafeOutput("ties", width = "100%", height = "auto")),
+                     shot("ties-by-kind", title = "How many kings were bound by each kind of tie",
+                          sub = "Counting both views together: each bar is the number of kings with at least one tie of that kind. A king with two wars counts once. Hover a bar for the names.",
+                          girafeOutput("tie_counts", width = "100%", height = "auto")),
                      div(class = "foot", "Some ties come from your Notes; others I added from the biblical text. See data/cross_links.csv (column 'origin').")),
             tabPanel("Verdicts",
                      shot("verdicts-by-reign-length", title = "What the LORD said of each king",
@@ -152,6 +156,10 @@ server <- function(input, output, session) {
   observeEvent(input$jump, { if (nzchar(input$jump)) selected(as.integer(input$jump)) })
   observeEvent(input$clear_sel, { selected(NULL) })
   observeEvent(input$nav, { i <- selected(); if (!is.null(i)) selected(((i - 1 + input$nav$d) %% nrow(KINGS)) + 1) })
+  observeEvent(input$house_pick, {                      # click a dynasty bar = focus the app on it (click again to clear)
+    h <- input$house_pick
+    updateSelectizeInput(session, "dyn", selected = if (identical(input$dyn, h)) "" else h)
+  })
 
   verd <- reactive({ v <- input$verdicts; if (is.null(v)) character() else v })
   dyn  <- reactive({ if (is.null(input$dyn) || !nzchar(input$dyn)) NULL else input$dyn })
@@ -166,14 +174,19 @@ server <- function(input, output, session) {
   })
   output$reigns <- renderGirafe(make_girafe(plot_reigns(KINGS, TIPS, ctx(), input$order_by %||% "time"), 10, 11.5))
   output$ties <- renderGirafe({
-    sc <- switch(input$scope %||% "between", between = "between", within = "within", c("between", "within"))
-    r <- plot_ties(KINGS, LINKS, TIPS, ctx(), sc)
-    make_girafe(r$plot, 10, max(2, 0.34 * r$n + 1.6))
+    r <- plot_ties_sankey(KINGS, LINKS, TIPS, ctx(), input$scope %||% "between")
+    make_girafe(r$plot, 10, 0.3 * r$units + 1.6)
   })
-  output$sync <- renderGirafe(make_girafe(plot_sync(KINGS, SYNC, TIPS, ctx()), 10, 15))
+  output$ties_note <- renderUI({
+    div(class = "lede", strong(if ((input$scope %||% "between") == "between")
+      "Israel's kings are on the left, Judah's on the right. Solomon of the United Kingdom sits with Judah, his own line."
+    else "Each tie runs from the earlier king (left) to the later one (right), so the chains of coups read across: Elah to Zimri, Zimri to Omri."))
+  })
+  output$tie_counts <- renderGirafe(make_girafe(plot_tie_counts(KINGS, LINKS, ctx()), 10, 3.6))
+  output$dynbars <- renderGirafe(make_girafe(plot_dynasty_bars(KINGS, ctx(), input$dmeasure %||% "kings"), 10, 6.4))
   output$vdots <- renderGirafe({
     k <- kept(); nh <- length(unique(k$house))
-    make_girafe(plot_verdict_dots(KINGS, TIPS, ctx()), 10, max(2.5, 0.3 * nrow(k) + 0.42 * nh + 0.9))
+    make_girafe(plot_verdict_dots(KINGS, TIPS, ctx()), 10, max(2.5, 0.3 * nrow(k) + 0.28 * nh + 0.9))
   })
   output$prophets <- renderGirafe({
     k <- kept()
