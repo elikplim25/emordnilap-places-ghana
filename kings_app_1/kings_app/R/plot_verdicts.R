@@ -44,7 +44,12 @@ plot_verdict_dots <- function(K, tips, ctx) {
   D$col <- PAL$verdict[as.character(D$verdict)]
   D$vx <- match(as.character(D$verdict), c("Good", "Mixed", "Evil", "N/A"))
   D$row <- factor(D$label, levels = rev(D$label))
-  D$hs <- factor(D$house, levels = unique(D$house))
+  # dynasty label + its totals (always the whole dynasty, whatever the filters), e.g. "House of Jehu\n5 kings | 102 yrs"
+  n_k <- table(K$house); yrs <- tapply(K$years, K$house, sum)
+  tot_txt <- function(h) paste0(n_k[[h]], ifelse(n_k[[h]] == 1, " king | ", " kings | "),
+                                ifelse(yrs[[h]] < 1, fmt_reign(yrs[[h]]), paste0(round(yrs[[h]]), ifelse(round(yrs[[h]]) == 1, " yr", " yrs"))))
+  hl <- unique(D$house)
+  D$hs <- factor(D$house, levels = hl, labels = paste0(hl, "\n", vapply(hl, tot_txt, "")))
   D$a <- if (is.null(ctx$sel)) 1 else ifelse(D$id == ctx$sel, 1, 0.3)
   ggplot2::ggplot(D, ggplot2::aes(x = vx, y = row)) +
     ggiraph::geom_point_interactive(ggplot2::aes(size = years, tooltip = tip, data_id = id, onclick = click), shape = 21, stroke = 1.2,

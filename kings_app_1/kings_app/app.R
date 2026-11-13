@@ -119,10 +119,7 @@ ui <- fluidPage(
                           girafeOutput("reigns", width = "100%", height = "auto"))),
             tabPanel("Houses & Kin",
                      div(class = "lede", "How did each king get the throne? Below, how many kings in each kingdom were the son, brother or other relative of the one before, and how many were not related at all."),
-                     uiOutput("kin_cards"),
-                     shot("dynasties-bubbles", title = "Each dynasty at a glance",
-                          sub = "One row per dynasty and one bubble per king, in order of succession. The bigger the bubble, the longer he reigned. Dark blue bubbles took the throne from family; orange bubbles mean the throne left the family.",
-                          girafeOutput("dynasties", width = "100%", height = "auto"))),
+                     uiOutput("kin_cards")),
             tabPanel("Ties & Alliances",
                      shot("ties-and-alliances", title = "Ties & Alliances",
                           sub = "Which kings were bound to others by marriage, alliance, war or murder? Each bar counts the ties a king had, split by kind. Hover a bar to read each tie and where it is in the Bible.",
@@ -163,7 +160,6 @@ server <- function(input, output, session) {
     make_girafe(r$plot, 10, 0.42 * r$n + 1.1)
   })
   output$reigns <- renderGirafe(make_girafe(plot_reigns(KINGS, TIPS, ctx(), input$order_by %||% "time"), 10, 11.5))
-  output$dynasties <- renderGirafe(make_girafe(plot_dynasties(KINGS, TIPS, ctx()), 10, 0.62 * length(unique(paste(KINGS$kingdom, KINGS$house))) + 3.4))
   output$ties <- renderGirafe({
     sc <- switch(input$scope %||% "between", between = "between", within = "within", c("between", "within"))
     r <- plot_ties(KINGS, LINKS, TIPS, ctx(), sc)
@@ -171,7 +167,7 @@ server <- function(input, output, session) {
   })
   output$vdots <- renderGirafe({
     k <- kept(); nh <- length(unique(k$house))
-    make_girafe(plot_verdict_dots(KINGS, TIPS, ctx()), 10, max(2.5, 0.3 * nrow(k) + 0.28 * nh + 0.9))
+    make_girafe(plot_verdict_dots(KINGS, TIPS, ctx()), 10, max(2.5, 0.3 * nrow(k) + 0.42 * nh + 0.9))
   })
   output$prophets <- renderGirafe({
     k <- kept()
