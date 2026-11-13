@@ -47,11 +47,11 @@ plot_verdict_dots <- function(K, tips, ctx) {
   D$hs <- factor(D$house, levels = unique(D$house))
   D$a <- if (is.null(ctx$sel)) 1 else ifelse(D$id == ctx$sel, 1, 0.3)
   ggplot2::ggplot(D, ggplot2::aes(x = vx, y = row)) +
-    ggiraph::geom_point_interactive(ggplot2::aes(size = years, tooltip = tip, data_id = id, onclick = click), shape = 21, stroke = 1.2,
+    ggiraph::geom_point_interactive(ggplot2::aes(size = pmax(years, 0.5), tooltip = tip, data_id = id, onclick = click), shape = 21, stroke = 0.5,
                                     fill = D$col, colour = "#FFFFFF", alpha = D$a) +
     ggplot2::geom_text(ggplot2::aes(x = vx + 0.28, label = reign_txt), hjust = 0, family = F_BODY, fontface = "bold", size = 3.5, colour = PAL$ink) +
     ggplot2::facet_grid(hs ~ ., scales = "free_y", space = "free_y", switch = "y") +
-    ggplot2::scale_size_continuous(range = c(3.2, 9.5)) +
+    ggplot2::scale_size_area(max_size = 11) +                          # bubble AREA is proportional to the reign; under 6 months = smallest dot
     ggplot2::scale_x_continuous(limits = c(0.6, 4.9), breaks = 1:4, labels = c("Good", "Mixed", "Evil", "Not rated"), position = "top", expand = c(0, 0)) +
     ggplot2::labs(x = NULL, y = NULL) +
     theme_kings(13) +

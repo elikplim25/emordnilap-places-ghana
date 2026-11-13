@@ -12,7 +12,7 @@ plot_gantt <- function(K, tips, ctx, color_by = c("verdict", "relationship", "dy
   D$tip <- tips[as.character(D$id)]; D$click <- js_pick(D$id)
   D$kl <- factor(D$kingdom, levels = KINGDOM_LEVELS, labels = KINGDOM_SHORT[KINGDOM_LEVELS])
   D$row <- factor(D$label, levels = rev(D$label))
-  D$e <- pmin(D$end_bc, D$start_bc - 0.9)                      # keep 7-day and 1-month reigns visible
+  D$e <- pmin(D$end_bc, D$start_bc - 0.5)                      # a reign under 6 months is drawn half a year wide so it stays visible and clickable
   D$grp <- switch(color_by,
                   verdict = ifelse(as.character(D$verdict) == "N/A", "Not rated", as.character(D$verdict)),
                   relationship = rel_group(D),

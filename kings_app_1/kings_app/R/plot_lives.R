@@ -66,13 +66,13 @@ plot_reigns <- function(K, tips, ctx, order_by = c("time", "length")) {
   D$kfac <- factor(D$kingdom, levels = KINGDOM_LEVELS, labels = KINGDOM_SHORT[KINGDOM_LEVELS])
   D <- if (order_by == "time") D[order(D$kfac, D$id), ] else D[order(D$kfac, -D$years, D$id), ]
   D$lab <- factor(D$label, levels = rev(unique(D$label)))
-  D$x <- pmax(D$years, 0.35)
+  D$x <- D$years                                                 # true length: a 7-day reign is a dot at zero
   ggplot2::ggplot(D, ggplot2::aes(y = lab)) +
     ggiraph::geom_segment_interactive(ggplot2::aes(x = 0, xend = x, yend = lab, tooltip = tip, data_id = id, onclick = click),
-                                      colour = D$col, alpha = D$a * 0.85, linewidth = 2, lineend = "round") +
+                                      colour = D$col, alpha = D$a * 0.85, linewidth = 1.6, lineend = "butt") +
     ggiraph::geom_point_interactive(ggplot2::aes(x = x, tooltip = tip, data_id = id, onclick = click),
-                                    colour = D$col, fill = D$col, shape = 21, size = 4.2, alpha = D$a) +
-    ggplot2::geom_text(ggplot2::aes(x = x + 1.2, label = reign_txt), hjust = 0, family = F_BODY, fontface = "bold",
+                                    colour = D$col, fill = D$col, shape = 21, size = 2.4, alpha = D$a) +
+    ggplot2::geom_text(ggplot2::aes(x = x + 0.8, label = reign_txt), hjust = 0, family = F_BODY, fontface = "bold",
                        size = 3.8, colour = PAL$ink, alpha = D$a) +
     ggplot2::facet_grid(kfac ~ ., scales = "free_y", space = "free_y") +
     ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0, 0.16)), breaks = seq(0, 50, 10)) +
