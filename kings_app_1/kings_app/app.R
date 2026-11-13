@@ -124,7 +124,12 @@ ui <- fluidPage(
                           girafeOutput("dynbars", width = "100%", height = "auto"))),
             tabPanel("Houses & Kin",
                      div(class = "lede", "How did each king get the throne? Below, how many kings in each kingdom were the son, brother or other relative of the one before, and how many were not related at all."),
-                     uiOutput("kin_cards")),
+                     uiOutput("kin_cards"),
+                     shot("synchronisms-israel-and-judah", title = "Two kingdoms, one clock: who was king when",
+                          sub = tagList("Israel's kings are on the left, Judah's on the right, in order from the split in 931 BC. Each bar is as tall as the king's reign. ",
+                                        "A ribbon joins two kings who were on the throne at the same time, and its thickness is the years they shared. A pale dotted cap is years a king shared the throne with another king of his own kingdom (a co-regency or rival reign); those years flow from the senior king's bar. Hover a ribbon for the dates; click a king to light up his ribbons. ",
+                                        strong("Read down and the story ends twice: Assyria carries Israel away in 722 BC, and Judah reigns alone for 136 more years until Babylon takes Jerusalem in 586 BC.")),
+                          girafeOutput("sync", width = "100%", height = "auto"))),
             tabPanel("Ties & Alliances",
                      shot("ties-sankey", title = "Who was bound to whom",
                           sub = "Every ribbon is one tie between two kings, coloured by kind: kin or marriage, alliance, war or rivalry, killed or overthrown. A thicker block means a king had more ties. Hover a ribbon to read the tie and where it is in the Bible; click a king to open his profile.",
@@ -182,7 +187,8 @@ server <- function(input, output, session) {
       "Israel's kings are on the left, Judah's on the right. Solomon of the United Kingdom sits with Judah, his own line."
     else "Each tie runs from the earlier king (left) to the later one (right), so the chains of coups read across: Elah to Zimri, Zimri to Omri."))
   })
-  output$tie_counts <- renderGirafe(make_girafe(plot_tie_counts(KINGS, LINKS, ctx()), 10, 3.6))
+  output$sync <- renderGirafe({ r <- plot_sync_sankey(KINGS, TIPS, ctx()); make_girafe(r$plot, 10, 0.034 * r$units + 0.4) })
+  output$tie_counts <-renderGirafe(make_girafe(plot_tie_counts(KINGS, LINKS, ctx()), 10, 3.6))
   output$dynbars <- renderGirafe(make_girafe(plot_dynasty_bars(KINGS, ctx(), input$dmeasure %||% "kings"), 10, 6.4))
   output$vdots <- renderGirafe({
     k <- kept(); nh <- length(unique(k$house))
