@@ -119,7 +119,12 @@ ui <- fluidPage(
                           girafeOutput("reigns", width = "100%", height = "auto"))),
             tabPanel("Houses & Kin",
                      div(class = "lede", "How did each king get the throne? Below, how many kings in each kingdom were the son, brother or other relative of the one before, and how many were not related at all."),
-                     uiOutput("kin_cards")),
+                     uiOutput("kin_cards"),
+                     shot("synchronisms-israel-and-judah", title = "Two kingdoms, one clock: who was king when",
+                          sub = tagList("After the split, the Bible dates each new king by the reign of the king next door: Asa of Judah, for example, began to reign in the 20th year of Jeroboam of Israel (1 Kings 15:9). ",
+                                        "Each line joins the start of one reign to that year in the other king's reign; the number is the year. Solid lines fit the reference chronology; dashed amber lines are the known puzzles, where co-regencies or different ways of counting stretch the sums. Thin strips are years a king shared the throne. ",
+                                        strong("Read down and the story ends twice: Israel falls to Assyria in 722 BC and is carried away; Judah survives Assyria, only to fall to Babylon in 586 BC.")),
+                          girafeOutput("sync", width = "100%", height = "auto"))),
             tabPanel("Ties & Alliances",
                      shot("ties-and-alliances", title = "Ties & Alliances",
                           sub = "Which kings were bound to others by marriage, alliance, war or murder? Each bar counts the ties a king had, split by kind. Hover a bar to read each tie and where it is in the Bible.",
@@ -165,6 +170,7 @@ server <- function(input, output, session) {
     r <- plot_ties(KINGS, LINKS, TIPS, ctx(), sc)
     make_girafe(r$plot, 10, max(2, 0.34 * r$n + 1.6))
   })
+  output$sync <- renderGirafe(make_girafe(plot_sync(KINGS, SYNC, TIPS, ctx()), 10, 15))
   output$vdots <- renderGirafe({
     k <- kept(); nh <- length(unique(k$house))
     make_girafe(plot_verdict_dots(KINGS, TIPS, ctx()), 10, max(2.5, 0.3 * nrow(k) + 0.42 * nh + 0.9))

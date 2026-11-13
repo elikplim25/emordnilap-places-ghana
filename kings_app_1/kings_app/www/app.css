@@ -117,3 +117,4 @@ svg text{font-family:'Archivo',Arial,sans-serif!important}
 .shot-strip.capturing{padding:20px 24px 14px;background:var(--teal)}
 .shot-strip>.shot-foot{color:#FFFFFF;border-top-color:var(--amber)}
 .stats>.shot-card,.kincards>.shot-card{flex-direction:column}
+.tab-pane .shot+.shot,.tab-pane .shiny-html-output+.shot{margin-top:28px}
