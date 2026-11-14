@@ -18,7 +18,7 @@ PROPH <- build_prophets(KINGS)
 TIPS  <- build_tips(KINGS, SYNC)
 N_K <- table(KINGS$kingdom)
 HOUSES <- unique(KINGS$house[order(KINGS$id)])
-HOUSE_CHOICES <- c(list(`All dynasties` = ""),
+HOUSE_CHOICES <- c(list(`All (reset the app)` = "__all__"),
                    split(HOUSES, factor(KINGDOM_LABELS[as.character(KINGS$kingdom[match(HOUSES, KINGS$house)])], levels = unname(KINGDOM_LABELS))))
 
 bg_links <- function(refs) {
@@ -90,13 +90,12 @@ ui <- fluidPage(
       div(class = "bar-g", span(class = "bar-lab", "Dynasty"),
           selectizeInput("dyn", NULL, width = "230px", choices = HOUSE_CHOICES, options = list(placeholder = "All dynasties"))),
       div(class = "bar-g bar-r", selectizeInput("jump", NULL, width = "260px",
-                         choices = c("Jump to a king..." = "", stats::setNames(KINGS$id, paste0(KINGS$id, ". ", KINGS$name))),
+                         choices = c("All (reset the app)" = "__all__", stats::setNames(KINGS$id, paste0(KINGS$id, ". ", KINGS$name))),
                          options = list(placeholder = "Jump to a king...")))),
   div(class = "stats",
-      shot("stat-united-kingdom", cls = "shot-card", stat(N_K[["United"]], "United Kingdom", "Saul, Ish-bosheth, David, Solomon", PAL$kingdom[["United"]])),
+      shot("stat-united-kingdom", cls = "shot-card", stat(N_K[["United"]], "Kings of the United Kingdom of Israel", "Saul, Ish-bosheth, David, Solomon", PAL$kingdom[["United"]])),
       shot("stat-kings-of-israel", cls = "shot-card", stat(N_K[["Northern"]], "Kings of Israel (North)", "ended in 722 BC", PAL$kingdom[["Northern"]])),
       shot("stat-kings-of-judah", cls = "shot-card", stat(N_K[["Southern"]], "Kings of Judah (South)", "ended in 586 BC", PAL$kingdom[["Southern"]])),
-      shot("stat-succeeded-by-family", cls = "shot-card", uiOutput("stat_related")),
       shot("stat-verdicts", cls = "shot-card", uiOutput("stat_verdict")),
       shot("stat-named-prophets", cls = "shot-card", stat(length(unique(PROPH$prophet)), "Named prophets", "who served beside the kings", PAL$ink_soft))),
   div(class = "main",
@@ -157,8 +156,22 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   selected <- reactiveVal(NULL)
+  # "All (reset the app)" in either drop-down: back to the default view everywhere
+  reset_all <- function() {
+    selected(NULL)
+    updateCheckboxGroupInput(session, "verdicts", selected = VERDICT_LEVELS)
+    updateSelectizeInput(session, "dyn", selected = "")
+    updateSelectizeInput(session, "jump", selected = "")
+    updateRadioButtons(session, "color_by", selected = "verdict")
+    updateCheckboxInput(session, "partial", value = TRUE)
+    updateRadioButtons(session, "order_by", selected = "time")
+    updateRadioButtons(session, "dmeasure", selected = "kings")
+    updateRadioButtons(session, "scope", selected = "between")
+    updateRadioButtons(session, "pview", selected = "king")
+  }
+  observeEvent(input$dyn, { if (identical(input$dyn, "__all__")) reset_all() })
   observeEvent(input$king_pick, { if (identical(selected(), input$king_pick)) selected(NULL) else selected(input$king_pick) })
-  observeEvent(input$jump, { if (nzchar(input$jump)) selected(as.integer(input$jump)) })
+  observeEvent(input$jump, { j <- input$jump; if (identical(j, "__all__")) reset_all() else if (nzchar(j)) selected(as.integer(j)) })
   observeEvent(input$clear_sel, { selected(NULL) })
   observeEvent(input$nav, { i <- selected(); if (!is.null(i)) selected(((i - 1 + input$nav$d) %% nrow(KINGS)) + 1) })
   observeEvent(input$house_pick, {                      # click a dynasty bar = focus the app on it (click again to clear)
@@ -167,7 +180,7 @@ server <- function(input, output, session) {
   })
 
   verd <- reactive({ v <- input$verdicts; if (is.null(v)) character() else v })
-  dyn  <- reactive({ if (is.null(input$dyn) || !nzchar(input$dyn)) NULL else input$dyn })
+  dyn  <- reactive({ if (is.null(input$dyn) || !nzchar(input$dyn) || input$dyn == "__all__") NULL else input$dyn })
   rel  <- reactive({ s <- selected(); if (is.null(s)) integer() else { o <- OVER$other[OVER$id == s]; unique(o[!is.na(o)]) } })
   ctx  <- reactive(make_ctx(verd(), dyn(), selected(), rel()))
   kept <- reactive(KINGS[king_keep(KINGS, ctx()), ])
@@ -206,10 +219,6 @@ server <- function(input, output, session) {
   })
 
   # ---- header stat cards ------------------------------------------------------------------------------------------
-  output$stat_related <- renderUI({
-    d <- KINGS[KINGS$kingdom != "United" & KINGS$rel_class != "First king", ]
-    stat(sum(d$related), "Succeeded by family", paste0("of ", nrow(d), " later kings (", nrow(d) - sum(d$related), " were not related)"))
-  })
   output$stat_verdict <- renderUI({
     t <- table(factor(KINGS$verdict, VERDICT_LEVELS))
     div(class = "stat", div(class = "stat-num stat-verdict",
